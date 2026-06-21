@@ -10,11 +10,26 @@ export function useFileImport() {
   }
 
   const extractTitleFromFilename = (filename) => {
-    return filename
-      .replace(/\.[^/.]+$/, '')
-      .replace(/^[\d\s.-]+/, '')
-      .replace(/[_\-]+/g, ' ')
-      .trim()
+    let result = filename.replace(/\.[^/.]+$/, '')
+
+    result = result.replace(/^[\s【\[（(]?\d+[\s】\])）.．\-_、·]+/, '')
+    result = result.replace(/^[\s\d.．\-_、·]+/, '')
+
+    result = result.replace(/\[[^\]]*\]/g, '')
+    result = result.replace(/【[^】]*】/g, '')
+    result = result.replace(/\([^)]*\)/g, '')
+    result = result.replace(/（[^）]*）/g, '')
+
+    result = result.replace(/[\-_、·]+/g, ' ')
+    result = result.replace(/\s+/g, ' ')
+
+    result = result.trim()
+
+    if (!result) {
+      result = filename.replace(/\.[^/.]+$/, '').trim()
+    }
+
+    return result
   }
 
   const readFileAsDataURL = (file) => {

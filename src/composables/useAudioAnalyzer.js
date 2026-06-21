@@ -1,11 +1,30 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 
+let analyzerInstances = []
+const clearAllFrequencyBars = () => {
+  analyzerInstances.forEach(inst => {
+    inst.clearBars()
+  })
+}
+
 export function useAudioAnalyzer(getFrequencyData) {
   const playerStore = usePlayerStore()
   const barCount = 64
   const frequencyBars = ref(new Array(barCount).fill(0))
   const animationId = ref(null)
+  const prevSongId = ref(null)
+
+  const instance = {
+    clearBars: () => {
+      frequencyBars.value = new Array(barCount).fill(0)
+    }
+  }
+  analyzerInstances.push(instance)
+
+  const clearBars = () => {
+    frequencyBars.value = new Array(barCount).fill(0)
+  }
 
   const getSimulatedData = () => {
     const data = []
@@ -22,6 +41,12 @@ export function useAudioAnalyzer(getFrequencyData) {
 
   const animate = () => {
     if (playerStore.isPlaying) {
+      const currentSongId = playerStore.currentSong?.id
+      if (prevSongId.value !== null && prevSongId.value !== currentSongId) {
+        clearBars()
+      }
+      prevSongId.value = currentSongId
+
       let freqData = getFrequencyData ? getFrequencyData() : null
 
       if (!freqData || freqData.length === 0) {
@@ -44,7 +69,12 @@ export function useAudioAnalyzer(getFrequencyData) {
 
       frequencyBars.value = normalized
     } else {
-      frequencyBars.value = frequencyBars.value.map(v => v * 0.95)
+      const currentMax = Math.max(...frequencyBars.value)
+      if (currentMax > 1) {
+        frequencyBars.value = frequencyBars.value.map(v => v * 0.9)
+      } else {
+        frequencyBars.value = frequencyBars.value.map(v => 0)
+      }
     }
 
     animationId.value = requestAnimationFrame(animate)
@@ -72,18 +102,33 @@ export function useAudioAnalyzer(getFrequencyData) {
     }
   )
 
+  watch(
+    () => playerStore.currentSong,
+    (newSong, oldSong) => {
+      if (newSong?.id !== oldSong?.id) {
+        clearAllFrequencyBars()
+        prevSongId.value = newSong?.id ?? null
+      }
+    }
+  )
+
   onMounted(() => {
     startAnimation()
   })
 
   onUnmounted(() => {
     stopAnimation()
+    const idx = analyzerInstances.indexOf(instance)
+    if (idx >= 0) {
+      analyzerInstances.splice(idx, 1)
+    }
   })
 
   return {
     frequencyBars,
     barCount,
     startAnimation,
-    stopAnimation
+    stopAnimation,
+    clearBars
   }
 }

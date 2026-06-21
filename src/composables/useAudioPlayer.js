@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, onMounted } from 'vue'
+import { ref, watch, onUnmounted, onMounted, computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { formatTime } from '@/utils/format'
 
@@ -9,10 +9,15 @@ let sourceInstance = null
 let instanceCount = 0
 let playerStoreRef = null
 
+let globalIsDragging = false
+let globalDraggedTime = null
+
 const createEventHandlers = (store) => ({
   onTimeUpdate: () => {
     if (!audioInstance) return
-    store.setCurrentTime(audioInstance.currentTime)
+    if (!globalIsDragging) {
+      store.setCurrentTime(audioInstance.currentTime)
+    }
   },
   onLoadedMetadata: () => {
     if (!audioInstance) return
@@ -78,10 +83,16 @@ export function useAudioPlayer() {
   const handlers = createEventHandlers(playerStore)
 
   const audio = ref(audioInstance)
-  const isDragging = ref(false)
+  const localIsDragging = ref(false)
   const audioContext = ref(audioContextInstance)
   const analyser = ref(analyserInstance)
   const isAudioContextReady = ref(!!analyserInstance)
+
+  const effectiveCurrentTime = computed(() => {
+    return globalIsDragging && globalDraggedTime !== null
+      ? globalDraggedTime
+      : playerStore.currentTime
+  })
 
   const initAudioContext = () => {
     if (!audioInstance) return
@@ -161,6 +172,7 @@ export function useAudioPlayer() {
   const playPrev = async () => {
     if (audioInstance && audioInstance.currentTime > 3) {
       audioInstance.currentTime = 0
+      playerStore.setCurrentTime(0)
       return
     }
     playerStore.playPrev()
@@ -169,17 +181,44 @@ export function useAudioPlayer() {
 
   const seekTo = (time) => {
     if (!audioInstance) return
-    audioInstance.currentTime = time
-    playerStore.seekTo(time)
+    const clamped = Math.max(0, Math.min(time, playerStore.duration || time))
+    audioInstance.currentTime = clamped
+    playerStore.seekTo(clamped)
   }
 
   const handleDragStart = () => {
-    isDragging.value = true
+    globalIsDragging = true
+    localIsDragging.value = true
+  }
+
+  const handleDragUpdate = (value) => {
+    if (!globalIsDragging) return
+    globalDraggedTime = value
   }
 
   const handleDragEnd = (value) => {
-    isDragging.value = false
-    seekTo(value)
+    if (value !== undefined && value !== null) {
+      globalDraggedTime = value
+    }
+    const finalTime = globalDraggedTime !== null ? globalDraggedTime : 0
+    seekTo(finalTime)
+    globalIsDragging = false
+    globalDraggedTime = null
+    localIsDragging.value = false
+  }
+
+  const handleProgressInput = (event) => {
+    const value = parseFloat(event.target.value)
+    if (!isNaN(value)) {
+      handleDragUpdate(value)
+    }
+  }
+
+  const handleProgressChange = (event) => {
+    const value = parseFloat(event.target.value)
+    if (!isNaN(value)) {
+      handleDragEnd(value)
+    }
   }
 
   watch(
@@ -233,6 +272,8 @@ export function useAudioPlayer() {
     audioContext,
     analyser,
     isAudioContextReady,
+    isDragging: localIsDragging,
+    effectiveCurrentTime,
     formatTime,
     play,
     pause,
@@ -242,7 +283,10 @@ export function useAudioPlayer() {
     seekTo,
     getFrequencyData,
     handleDragStart,
+    handleDragUpdate,
     handleDragEnd,
+    handleProgressInput,
+    handleProgressChange,
     loadSong
   }
 }

@@ -15,63 +15,32 @@ const {
   playNext,
   playPrev,
   getFrequencyData,
-  handleDragStart,
-  handleDragEnd,
-  seekTo
+  effectiveCurrentTime,
+  isDragging,
+  handleProgressInput,
+  handleProgressChange
 } = useAudioPlayer()
 
 const { frequencyBars, barCount } = useAudioAnalyzer(getFrequencyData)
 
 const currentSong = computed(() => playerStore.currentSong)
 const isPlaying = computed(() => playerStore.isPlaying)
-const currentTime = computed(() => playerStore.currentTime)
 const duration = computed(() => playerStore.duration)
 const hasPlaylist = computed(() => playerStore.hasPlaylist)
 
 const progressInputRef = ref(null)
-const localProgress = ref(0)
-const isDragging = ref(false)
 
 const progressPercent = computed(() => {
-  if (isDragging.value) {
-    return (localProgress.value / duration.value) * 100
-  }
   if (!duration.value || duration.value <= 0) return 0
-  return (currentTime.value / duration.value) * 100
+  return (effectiveCurrentTime.value / duration.value) * 100
 })
 
-const formattedCurrentTime = computed(() => {
-  if (isDragging.value) return formatTime(localProgress.value)
-  return formatTime(currentTime.value)
-})
+const formattedCurrentTime = computed(() => formatTime(effectiveCurrentTime.value))
 
 const formattedDuration = computed(() => formatTime(duration.value))
 
 const goToList = () => {
   router.push('/list')
-}
-
-const onProgressMouseDown = () => {
-  isDragging.value = true
-  handleDragStart()
-}
-
-const onProgressInput = (event) => {
-  if (!duration.value) return
-  localProgress.value = parseFloat(event.target.value)
-}
-
-const onProgressMouseUp = () => {
-  if (isDragging.value) {
-    handleDragEnd(localProgress.value)
-    isDragging.value = false
-  }
-}
-
-const onProgressChange = (event) => {
-  if (!duration.value) return
-  const value = parseFloat(event.target.value)
-  seekTo(value)
 }
 
 const getBarHeight = (value) => {
@@ -132,7 +101,7 @@ const getBarHeight = (value) => {
           <div class="player-controls">
             <div class="progress-section">
               <span class="time-text">{{ formattedCurrentTime }}</span>
-              <div class="progress-wrapper" @mousedown="onProgressMouseDown">
+              <div class="progress-wrapper">
                 <input
                   ref="progressInputRef"
                   type="range"
@@ -140,11 +109,9 @@ const getBarHeight = (value) => {
                   :min="0"
                   :max="duration || 0"
                   :step="0.1"
-                  :value="isDragging ? localProgress : currentTime"
-                  @input="onProgressInput"
-                  @change="onProgressChange"
-                  @mouseup="onProgressMouseUp"
-                  @blur="onProgressMouseUp"
+                  :value="effectiveCurrentTime"
+                  @input="handleProgressInput"
+                  @change="handleProgressChange"
                 />
                 <div class="progress-bar">
                   <div
