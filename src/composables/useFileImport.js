@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { extractTitleFromFilename } from '@/utils/filename'
 
 export function useFileImport() {
   const playerStore = usePlayerStore()
@@ -7,29 +8,6 @@ export function useFileImport() {
 
   const generateId = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2)
-  }
-
-  const extractTitleFromFilename = (filename) => {
-    let result = filename.replace(/\.[^/.]+$/, '')
-
-    result = result.replace(/^[\s【\[（(]?\d+[\s】\])）.．\-_、·]+/, '')
-    result = result.replace(/^[\s\d.．\-_、·]+/, '')
-
-    result = result.replace(/\[[^\]]*\]/g, '')
-    result = result.replace(/【[^】]*】/g, '')
-    result = result.replace(/\([^)]*\)/g, '')
-    result = result.replace(/（[^）]*）/g, '')
-
-    result = result.replace(/[\-_、·]+/g, ' ')
-    result = result.replace(/\s+/g, ' ')
-
-    result = result.trim()
-
-    if (!result) {
-      result = filename.replace(/\.[^/.]+$/, '').trim()
-    }
-
-    return result
   }
 
   const readFileAsDataURL = (file) => {

@@ -39,6 +39,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (playlist.value.length === 0) {
       currentIndex.value = -1
       isPlaying.value = false
+      currentTime.value = 0
+      duration.value = 0
     } else if (index < currentIndex.value) {
       currentIndex.value--
     } else if (index === currentIndex.value) {
